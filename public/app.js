@@ -209,6 +209,7 @@ function openModal(movieId) {
   const movie = movies.find(m => m.id === movieId);
   if (!movie) return;
 
+  hideSearchResults();
   selectedMovieId = movieId;
   modalTitle.textContent = movie.title;
 
