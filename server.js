@@ -62,6 +62,11 @@ app.get('/api/movies', (req, res) => {
   res.json(movies);
 });
 
+// Community feed — all ratings (public)
+app.get('/api/ratings/feed', (req, res) => {
+  res.json(db.getAllRatings());
+});
+
 // Get ratings for current user
 app.get('/api/ratings', ensureAuth, (req, res) => {
   const ratings = db.getRatingsForUser(req.user.id);
@@ -72,8 +77,8 @@ app.get('/api/ratings', ensureAuth, (req, res) => {
 app.post('/api/ratings', ensureAuth, (req, res) => {
   const { movieId, rating } = req.body;
 
-  if (!movieId || !rating || rating < 1 || rating > 5) {
-    return res.status(400).json({ error: 'Invalid movieId or rating (1-5)' });
+  if (!movieId || !rating || rating < 0.5 || rating > 5 || (rating * 2) % 1 !== 0) {
+    return res.status(400).json({ error: 'Invalid movieId or rating (0.5-5 in 0.5 increments)' });
   }
 
   db.setRating(req.user.id, movieId, rating);

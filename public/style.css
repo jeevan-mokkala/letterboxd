@@ -28,24 +28,50 @@ h2 {
   letter-spacing: 0.5px;
 }
 
-.search-section {
-  margin-bottom: 30px;
+.search-wrapper {
+  position: relative;
+  margin: 60px auto 40px;
+  max-width: 500px;
 }
 
 #search {
   width: 100%;
-  padding: 10px;
-  font-size: 1rem;
+  padding: 14px 18px;
+  font-size: 1.15rem;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 #search:focus {
   outline: none;
   border-color: #999;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
 }
 
-.movies-section,
+#search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#search-results li {
+  padding: 10px 18px;
+}
+
+#search-results li:hover {
+  background: #e8e8e8;
+}
+
 .ratings-section {
   margin-bottom: 30px;
 }
@@ -125,23 +151,52 @@ li:hover {
   margin-bottom: 20px;
 }
 
+/* Interactive star rating */
 .stars {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
   margin-bottom: 20px;
 }
 
-.star {
-  display: inline-block;
-  padding: 10px 15px;
-  margin: 0 2px;
+.star-wrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
   cursor: pointer;
-  border: 1px solid #ddd;
-  border-radius: 4px;
 }
 
-.star:hover {
-  background: #e6b800;
-  color: white;
-  border-color: #e6b800;
+.star-wrapper svg {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+
+.star-wrapper .star-half-zone {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 50%;
+}
+
+.star-wrapper .star-half-zone.left {
+  left: 0;
+}
+
+.star-wrapper .star-half-zone.right {
+  right: 0;
+}
+
+/* Inline star display (for feed and ratings list) */
+.stars-display {
+  display: inline-flex;
+  gap: 1px;
+  vertical-align: middle;
+}
+
+.stars-display svg {
+  width: 16px;
+  height: 16px;
 }
 
 #close-modal {
@@ -226,4 +281,42 @@ li:hover {
 .sign-out:hover {
   text-decoration: underline;
   color: #333;
+}
+
+/* Community feed */
+.feed-section {
+  margin-bottom: 30px;
+}
+
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.feed-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.feed-user {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.feed-movie {
+  color: #555;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-stars {
+  flex-shrink: 0;
 }

@@ -21,11 +21,32 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     movie_id INTEGER NOT NULL,
-    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    rating REAL NOT NULL CHECK(rating >= 0.5 AND rating <= 5),
     FOREIGN KEY (user_id) REFERENCES users(id),
     UNIQUE(user_id, movie_id)
   );
 `);
+
+// Migrate ratings column from INTEGER to REAL if needed
+const colInfo = db.prepare("PRAGMA table_info(ratings)").all();
+const ratingCol = colInfo.find(c => c.name === 'rating');
+if (ratingCol && ratingCol.type !== 'REAL') {
+  db.pragma('foreign_keys = OFF');
+  db.exec(`
+    ALTER TABLE ratings RENAME TO ratings_old;
+    CREATE TABLE ratings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      movie_id INTEGER NOT NULL,
+      rating REAL NOT NULL CHECK(rating >= 0.5 AND rating <= 5),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE(user_id, movie_id)
+    );
+    INSERT INTO ratings (id, user_id, movie_id, rating) SELECT id, user_id, movie_id, CAST(rating AS REAL) FROM ratings_old;
+    DROP TABLE ratings_old;
+  `);
+  db.pragma('foreign_keys = ON');
+}
 
 // Prepared statements
 const findUserByGoogleId = db.prepare('SELECT * FROM users WHERE google_id = ?');
@@ -37,6 +58,7 @@ const upsertRating = db.prepare(`
   ON CONFLICT(user_id, movie_id) DO UPDATE SET rating = excluded.rating
 `);
 const removeRating = db.prepare('DELETE FROM ratings WHERE user_id = ? AND movie_id = ?');
+const selectAllRatings = db.prepare('SELECT r.movie_id, r.rating, u.name AS user_name, u.picture AS user_picture FROM ratings r JOIN users u ON r.user_id = u.id ORDER BY r.id DESC');
 
 function findOrCreateUser(profile) {
   const existing = findUserByGoogleId.get(profile.id);
@@ -68,4 +90,8 @@ function deleteRating(userId, movieId) {
   return result.changes > 0;
 }
 
-module.exports = { findOrCreateUser, getUserById, getRatingsForUser, setRating, deleteRating };
+function getAllRatings() {
+  return selectAllRatings.all();
+}
+
+module.exports = { findOrCreateUser, getUserById, getRatingsForUser, setRating, deleteRating, getAllRatings };
