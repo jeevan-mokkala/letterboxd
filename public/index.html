@@ -14,29 +14,28 @@
   </div>
 
   <div id="app-container" class="hidden">
-    <div class="user-header">
-      <h1>Movie Ratings</h1>
-      <div class="user-info">
-        <img id="user-avatar" class="avatar" src="" alt="avatar">
-        <span id="user-name"></span>
-        <a href="/auth/logout" class="sign-out">Sign out</a>
-      </div>
-    </div>
+    <h1 class="app-title">Movie Ratings</h1>
 
     <div class="search-wrapper">
       <input type="text" id="search" placeholder="Search movies..." autocomplete="off">
       <ul id="search-results" class="hidden"></ul>
     </div>
 
+    <section class="ratings-section">
+      <h2>Your Ratings</h2>
+      <ul id="ratings-list"></ul>
+    </section>
+
     <section class="feed-section">
       <h2>Community Ratings</h2>
       <ul id="feed-list"></ul>
     </section>
 
-    <section class="ratings-section">
-      <h2>Your Ratings</h2>
-      <ul id="ratings-list"></ul>
-    </section>
+    <div class="user-info">
+      <img id="user-avatar" class="avatar" src="" alt="avatar">
+      <span id="user-name"></span>
+      <a href="/auth/logout" class="sign-out">Sign out</a>
+    </div>
   </div>
 
   <div id="rating-modal" class="modal hidden">
