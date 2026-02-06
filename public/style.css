@@ -23,8 +23,11 @@ body {
 }
 
 h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  font-size: 2rem;
   margin-bottom: 20px;
-  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
 .app-title {
@@ -42,8 +45,7 @@ h2 {
 
 .search-wrapper {
   position: relative;
-  margin: 20px auto 30px;
-  max-width: 500px;
+  margin: 20px 0 30px;
 }
 
 #search {
