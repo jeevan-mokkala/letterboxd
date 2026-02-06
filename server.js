@@ -3,8 +3,9 @@ const express = require('express');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const passport = require('./auth');
-const movies = require('./movies');
 const db = require('./db');
+
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,9 +58,26 @@ app.get('/api/me', (req, res) => {
   res.json({ name, email, picture });
 });
 
-// Get all movies (public)
-app.get('/api/movies', (req, res) => {
-  res.json(movies);
+// Search movies via TMDB (public)
+app.get('/api/movies/search', async (req, res) => {
+  const query = req.query.q;
+  if (!query || query.length < 2) return res.json([]);
+
+  try {
+    const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=1`;
+    const tmdbRes = await fetch(url);
+    const data = await tmdbRes.json();
+    const results = (data.results || []).map(m => ({
+      id: m.id,
+      title: m.title,
+      year: m.release_date ? parseInt(m.release_date.substring(0, 4)) : null,
+      poster: m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : null,
+    }));
+    res.json(results);
+  } catch (err) {
+    console.error('TMDB search error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
 });
 
 // Community feed — all ratings (public)
@@ -75,13 +93,13 @@ app.get('/api/ratings', ensureAuth, (req, res) => {
 
 // Save a rating
 app.post('/api/ratings', ensureAuth, (req, res) => {
-  const { movieId, rating } = req.body;
+  const { movieId, rating, movieTitle, movieYear } = req.body;
 
   if (!movieId || !rating || rating < 0.5 || rating > 5 || (rating * 2) % 1 !== 0) {
     return res.status(400).json({ error: 'Invalid movieId or rating (0.5-5 in 0.5 increments)' });
   }
 
-  db.setRating(req.user.id, movieId, rating);
+  db.setRating(req.user.id, movieId, rating, movieTitle || '', movieYear);
   res.json({ success: true, movieId, rating });
 });
 

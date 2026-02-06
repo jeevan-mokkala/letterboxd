@@ -1,8 +1,8 @@
-let movies = [];
-let ratings = {};
+let userRatings = []; // [{movie_id, rating, movie_title, movie_year}]
 let feedData = [];
-let selectedMovieId = null;
+let selectedMovie = null; // {id, title, year}
 let hoverRating = 0;
+let searchTimer = null;
 
 const loginScreen = document.getElementById('login-screen');
 const appContainer = document.getElementById('app-container');
@@ -20,7 +20,6 @@ const STAR_PATH = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25
 let clipIdCounter = 0;
 
 function starSVG(fillType) {
-  // fillType: 'full', 'half', 'empty'
   const gold = '#e6b800';
   const grey = '#ccc';
 
@@ -52,7 +51,6 @@ function renderStarsHTML(rating) {
   return `<span class="stars-display">${html}</span>`;
 }
 
-// Build interactive star rating in the modal
 function buildStarRating(container) {
   container.innerHTML = '';
   for (let i = 1; i <= 5; i++) {
@@ -79,19 +77,19 @@ function updateStarDisplay(container, rating) {
   wrappers.forEach((wrapper, idx) => {
     const i = idx + 1;
     let type;
-    if (rating >= i) {
-      type = 'full';
-    } else if (rating >= i - 0.5) {
-      type = 'half';
-    } else {
-      type = 'empty';
-    }
-    // Replace SVG but keep the hover zones
+    if (rating >= i) type = 'full';
+    else if (rating >= i - 0.5) type = 'half';
+    else type = 'empty';
     const svg = wrapper.querySelector('svg');
     const temp = document.createElement('span');
     temp.innerHTML = starSVG(type);
     wrapper.replaceChild(temp.firstElementChild, svg);
   });
+}
+
+function getRatingForMovie(movieId) {
+  const r = userRatings.find(r => r.movie_id === movieId);
+  return r ? r.rating : 0;
 }
 
 async function init() {
@@ -104,7 +102,6 @@ async function init() {
       return;
     }
 
-    // Show user info
     document.getElementById('user-name').textContent = user.name;
     const avatar = document.getElementById('user-avatar');
     if (user.picture) {
@@ -115,46 +112,51 @@ async function init() {
 
     appContainer.classList.remove('hidden');
 
-    const [moviesRes, ratingsRes, feedRes] = await Promise.all([
-      fetch('/api/movies'),
+    const [ratingsRes, feedRes] = await Promise.all([
       fetch('/api/ratings'),
       fetch('/api/ratings/feed')
     ]);
-    movies = await moviesRes.json();
-    ratings = await ratingsRes.json();
+    userRatings = await ratingsRes.json();
     feedData = await feedRes.json();
     renderRatings();
     renderFeed();
-
-    // Build interactive stars in the modal
     buildStarRating(starRatingContainer);
   } catch (err) {
     console.error('Error loading data:', err);
   }
 }
 
-function showSearchResults(query) {
-  const filtered = movies.filter(m =>
-    m.title.toLowerCase().includes(query.toLowerCase())
-  );
-
-  if (filtered.length === 0) {
-    searchResults.innerHTML = '<li class="no-results">No movies found</li>';
-  } else {
-    searchResults.innerHTML = filtered.map(movie => {
-      const rating = ratings[movie.id];
-      const ratingDisplay = rating ? renderStarsHTML(rating) : '';
-      return `
-        <li data-id="${movie.id}">
-          <span class="movie-title">${movie.title}</span>
-          <span class="movie-year">(${movie.year})</span>
-          ${ratingDisplay}
-        </li>
-      `;
-    }).join('');
+async function searchMovies(query) {
+  if (query.length < 2) {
+    hideSearchResults();
+    return;
   }
 
-  searchResults.classList.remove('hidden');
+  try {
+    const res = await fetch(`/api/movies/search?q=${encodeURIComponent(query)}`);
+    const results = await res.json();
+
+    if (results.length === 0) {
+      searchResults.innerHTML = '<li class="no-results">No movies found</li>';
+    } else {
+      searchResults.innerHTML = results.map(movie => {
+        const rating = getRatingForMovie(movie.id);
+        const ratingDisplay = rating ? renderStarsHTML(rating) : '';
+        const yearDisplay = movie.year ? `(${movie.year})` : '';
+        return `
+          <li data-id="${movie.id}" data-title="${movie.title.replace(/"/g, '&quot;')}" data-year="${movie.year || ''}">
+            <span class="movie-title">${movie.title}</span>
+            <span class="movie-year">${yearDisplay}</span>
+            ${ratingDisplay}
+          </li>
+        `;
+      }).join('');
+    }
+
+    searchResults.classList.remove('hidden');
+  } catch (err) {
+    console.error('Search error:', err);
+  }
 }
 
 function hideSearchResults() {
@@ -163,23 +165,24 @@ function hideSearchResults() {
 }
 
 function renderRatings() {
-  const ratedMovies = movies.filter(m => ratings[m.id]);
-
-  if (ratedMovies.length === 0) {
+  if (userRatings.length === 0) {
     ratingsList.innerHTML = '<li class="no-results">No ratings yet</li>';
     return;
   }
 
-  ratingsList.innerHTML = ratedMovies.map(movie => `
-    <li class="rated-item">
-      <span>
-        <span class="movie-title">${movie.title}</span>
-        <span class="movie-year">(${movie.year})</span>
-        ${renderStarsHTML(ratings[movie.id])}
-      </span>
-      <button class="delete-btn" data-id="${movie.id}">remove</button>
-    </li>
-  `).join('');
+  ratingsList.innerHTML = userRatings.map(r => {
+    const yearDisplay = r.movie_year ? `(${r.movie_year})` : '';
+    return `
+      <li class="rated-item">
+        <span>
+          <span class="movie-title">${r.movie_title}</span>
+          <span class="movie-year">${yearDisplay}</span>
+          ${renderStarsHTML(r.rating)}
+        </span>
+        <button class="delete-btn" data-id="${r.movie_id}">remove</button>
+      </li>
+    `;
+  }).join('');
 }
 
 function renderFeed() {
@@ -189,8 +192,8 @@ function renderFeed() {
   }
 
   feedList.innerHTML = feedData.map(item => {
-    const movie = movies.find(m => m.id === item.movie_id);
-    const movieLabel = movie ? `${movie.title} (${movie.year})` : `Movie #${item.movie_id}`;
+    const yearDisplay = item.movie_year ? `(${item.movie_year})` : '';
+    const movieLabel = `${item.movie_title || 'Unknown'} ${yearDisplay}`;
     const avatarHTML = item.user_picture
       ? `<img class="feed-avatar" src="${item.user_picture}" alt="">`
       : '';
@@ -205,16 +208,12 @@ function renderFeed() {
   }).join('');
 }
 
-function openModal(movieId) {
-  const movie = movies.find(m => m.id === movieId);
-  if (!movie) return;
-
+function openModal(movieId, title, year) {
   hideSearchResults();
-  selectedMovieId = movieId;
-  modalTitle.textContent = movie.title;
+  selectedMovie = { id: movieId, title, year };
+  modalTitle.textContent = title;
 
-  // Show existing rating if any
-  const existing = ratings[movieId] || 0;
+  const existing = getRatingForMovie(movieId);
   hoverRating = existing;
   updateStarDisplay(starRatingContainer, existing);
 
@@ -223,22 +222,31 @@ function openModal(movieId) {
 
 function closeModal() {
   modal.classList.add('hidden');
-  selectedMovieId = null;
+  selectedMovie = null;
   hoverRating = 0;
 }
 
-async function saveRating(movieId, rating) {
+async function saveRating(movieId, rating, movieTitle, movieYear) {
   try {
     await fetch('/api/ratings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ movieId, rating })
+      body: JSON.stringify({ movieId, rating, movieTitle, movieYear })
     });
-    ratings[movieId] = rating;
+
+    // Update local ratings
+    const existing = userRatings.find(r => r.movie_id === movieId);
+    if (existing) {
+      existing.rating = rating;
+      existing.movie_title = movieTitle;
+      existing.movie_year = movieYear;
+    } else {
+      userRatings.unshift({ movie_id: movieId, rating, movie_title: movieTitle, movie_year: movieYear });
+    }
+
     searchInput.value = '';
     hideSearchResults();
 
-    // Re-fetch feed
     const feedRes = await fetch('/api/ratings/feed');
     feedData = await feedRes.json();
 
@@ -253,9 +261,8 @@ async function saveRating(movieId, rating) {
 async function deleteRating(movieId) {
   try {
     await fetch(`/api/ratings/${movieId}`, { method: 'DELETE' });
-    delete ratings[movieId];
+    userRatings = userRatings.filter(r => r.movie_id !== movieId);
 
-    // Re-fetch feed
     const feedRes = await fetch('/api/ratings/feed');
     feedData = await feedRes.json();
 
@@ -269,8 +276,9 @@ async function deleteRating(movieId) {
 // Event listeners
 searchInput.addEventListener('input', (e) => {
   const query = e.target.value.trim();
+  clearTimeout(searchTimer);
   if (query.length >= 2) {
-    showSearchResults(query);
+    searchTimer = setTimeout(() => searchMovies(query), 300);
   } else {
     hideSearchResults();
   }
@@ -279,7 +287,10 @@ searchInput.addEventListener('input', (e) => {
 searchResults.addEventListener('click', (e) => {
   const li = e.target.closest('li');
   if (li && li.dataset.id) {
-    openModal(parseInt(li.dataset.id));
+    const id = parseInt(li.dataset.id);
+    const title = li.dataset.title;
+    const year = li.dataset.year ? parseInt(li.dataset.year) : null;
+    openModal(id, title, year);
   }
 });
 
@@ -299,32 +310,26 @@ starRatingContainer.addEventListener('mouseover', (e) => {
 });
 
 starRatingContainer.addEventListener('mouseleave', () => {
-  const existing = selectedMovieId ? (ratings[selectedMovieId] || 0) : 0;
+  const existing = selectedMovie ? getRatingForMovie(selectedMovie.id) : 0;
   hoverRating = existing;
   updateStarDisplay(starRatingContainer, existing);
 });
 
 starRatingContainer.addEventListener('click', (e) => {
   const zone = e.target.closest('.star-half-zone');
-  if (!zone || !selectedMovieId) return;
+  if (!zone || !selectedMovie) return;
   const rating = parseFloat(zone.dataset.value);
-  saveRating(selectedMovieId, rating);
+  saveRating(selectedMovie.id, rating, selectedMovie.title, selectedMovie.year);
 });
 
 closeModalBtn.addEventListener('click', closeModal);
 
 modal.addEventListener('click', (e) => {
-  if (e.target === modal) {
-    closeModal();
-  }
+  if (e.target === modal) closeModal();
 });
 
-// Click outside search results to close dropdown
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.search-wrapper')) {
-    hideSearchResults();
-  }
+  if (!e.target.closest('.search-wrapper')) hideSearchResults();
 });
 
-// Initialize
 init();
